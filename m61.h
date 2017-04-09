@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
+//function prototypes
 void* m61_malloc(size_t sz, const char* file, int line);
 void m61_free(void* ptr, const char* file, int line);
 void* m61_realloc(void* ptr, size_t sz, const char* file, int line);
