@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include <assert.h>
 
+
 //global structure to initilize stats
 struct m61_statistics current_stats = {
     .nactive = 0,        //total number of active allocations
@@ -18,7 +19,16 @@ struct m61_statistics current_stats = {
     .heap_min = (char *) 0xff,
     .heap_max = (char *) 0xff
 };
-    
+
+//global variable to keeps track of number of free(ptr).
+unsigned long long total_free = 0;
+
+//keeps updating the global current_stats structure, 
+//called whenever memory is allocated and deallocated.
+void update_active_allocations() {
+    //updates the active number of allocations
+    current_stats.nactive = current_stats.ntotal - total_free;
+}
 
 /// m61_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
@@ -29,6 +39,7 @@ struct m61_statistics current_stats = {
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
+    update_active_allocations(); //updates the current_stats, because more memory is allocated.
     return base_malloc(sz);
 }
 
@@ -41,8 +52,9 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    // Your code here.
     base_free(ptr);
+    total_free += 1; //updates the total number of free(ptr) so far. 
+    update_active_allocations(); //this changes because memory is being released. 
 }
 
 
