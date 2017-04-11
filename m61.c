@@ -40,6 +40,7 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
     update_active_allocations(); //updates the current_stats, because more memory is allocated.
+    current_stats.total_size += sz; // updates total bytes allocated so far. 
     return base_malloc(sz);
 }
 
