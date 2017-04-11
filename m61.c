@@ -28,7 +28,7 @@ struct m61_statistics current_stats = {
 
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    // Your code here.
+    current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
     return base_malloc(sz);
 }
 
