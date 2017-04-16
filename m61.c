@@ -6,7 +6,6 @@
 #include <inttypes.h>
 #include <assert.h>
 
-
 //global structure to initilize stats
 struct m61_statistics current_stats = {
     .nactive = 0,        //total number of active allocations
@@ -16,8 +15,8 @@ struct m61_statistics current_stats = {
     .nfail = 0,      //total number of failed allocation attempts
     .fail_size = 0, // size of total faild allocations in bytes
     
-    .heap_min = (char *) 0xff,
-    .heap_max = (char *) 0xff
+    .heap_min = (char *) 0xffffffff ,
+    .heap_max = (char *) 0x00
 };
 
 //global variable to keeps track of number of free(ptr).
@@ -28,6 +27,19 @@ unsigned long long total_free = 0;
 void update_active_allocations() {
     //updates the active number of allocations
     current_stats.nactive = current_stats.ntotal - total_free;
+}
+//keeps track of smallest and largest heap address seen so far, 
+//called whenever memory is allocated, 
+//make comparision b/w addresses
+void update_heap_address(char *input_address, size_t sz) {
+    if(input_address < current_stats.heap_min)  
+    {
+        current_stats.heap_min = input_address;
+    }
+    if(input_address > current_stats.heap_max)
+    {
+        current_stats.heap_max = input_address + sz;
+    }
 }
 
 /// m61_malloc(sz, file, line)
@@ -51,6 +63,7 @@ void* m61_malloc(size_t sz, const char* file, int line) {
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
+        update_heap_address((char*)starting_address, sz); // updates heap address space seen so far.
     }  
     return starting_address;
 }
