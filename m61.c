@@ -19,6 +19,14 @@ struct m61_statistics current_stats = {
     .heap_max = (char *) 0x00
 };
 
+//this structure hold meta-data
+//related to allocation information, size etc
+struct meta {
+    size_t block_size;
+};
+
+
+
 //global variable to keeps track of number of free(ptr).
 unsigned long long total_free = 0;
 
@@ -50,22 +58,26 @@ void update_heap_address(char *input_address, size_t sz) {
 
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    void *starting_address = base_malloc(sz);
+    void *starting_address = base_malloc(sz + (sizeof(struct meta))); // also allocate space for meta data. 
     if(starting_address == NULL) // memory allocation failed.
     {
         //updates the total number of failed memory allocation attempts.
         current_stats.nfail += 1;
         //updates the size of total failed allocations
         current_stats.fail_size += sz;
+        return starting_address;
     }
     else 
     {
+        struct meta *meta_data_ptr = starting_address;
+        meta_data_ptr->block_size = sz;
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
         update_heap_address((char*)starting_address, sz); // updates heap address space seen so far.
+        current_stats.active_size += sz;
     }  
-    return starting_address;
+    return starting_address + sizeof(struct meta);
 }
 
 
@@ -77,6 +89,8 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
+    struct meta *meta_data_ptr = ptr - sizeof(struct meta); //computing ptr to meta data
+    current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     base_free(ptr);
     total_free += 1; //updates the total number of free(ptr) so far. 
     update_active_allocations(); //this changes because memory is being released. 
