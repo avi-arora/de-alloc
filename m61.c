@@ -23,12 +23,14 @@ struct m61_statistics current_stats = {
 //related to allocation information, size etc
 struct meta {
     size_t block_size;
+    size_t alignment_shifts;
 };
 
 
 
 //global variable to keeps track of number of free(ptr).
 unsigned long long total_free = 0;
+
 
 //keeps updating the global current_stats structure, 
 //called whenever memory is allocated and deallocated.
@@ -58,7 +60,9 @@ void update_heap_address(char *input_address, size_t sz) {
 
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    void *starting_address = base_malloc(sz + (sizeof(struct meta))); // also allocate space for meta data. 
+    size_t alignment_bytes = 8 - (sz % 8);
+    void *starting_address = base_malloc((sz + alignment_bytes) + (sizeof(struct meta))); // also allocate space for meta data. 
+    struct meta *meta_data_ptr = starting_address;
     if(starting_address == NULL) // memory allocation failed.
     {
         //updates the total number of failed memory allocation attempts.
@@ -69,15 +73,22 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     }
     else 
     {
-        struct meta *meta_data_ptr = starting_address;
+       // struct meta *meta_data_ptr = starting_address;
         meta_data_ptr->block_size = sz;
+        meta_data_ptr->alignment_shifts = 0;
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
-        update_heap_address((char*)starting_address, sz); // updates heap address space seen so far.
+        update_heap_address((char*)starting_address+sizeof(struct meta), sz); // updates heap address space seen so far.
         current_stats.active_size += sz;
     }  
-    return starting_address + sizeof(struct meta);
+    void *payload_address_aligned = starting_address + sizeof(struct meta);
+    while((uintptr_t)payload_address_aligned % sizeof(double) != 0)
+    {
+        meta_data_ptr->alignment_shifts += 1;
+        payload_address_aligned += 1;
+    }
+    return payload_address_aligned;
 }
 
 
@@ -89,7 +100,7 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    struct meta *meta_data_ptr = ptr - sizeof(struct meta); //computing ptr to meta data
+    struct meta *meta_data_ptr = ptr - sizeof(struct meta) ; //computing ptr to meta data
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     base_free(ptr);
     total_free += 1; //updates the total number of free(ptr) so far. 
