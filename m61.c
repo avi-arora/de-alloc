@@ -21,9 +21,12 @@ struct m61_statistics current_stats = {
 
 //this structure hold meta-data
 //related to allocation information, size etc
+#define ALIGNMENT 8
 struct meta {
     size_t block_size;
 };
+size_t meta_header_padding = (sizeof(struct meta) % ALIGNMENT) ? (sizeof(struct meta) + ALIGNMENT) - (sizeof(struct meta) % ALIGNMENT) : sizeof(struct meta);
+
 
 
 
@@ -58,7 +61,8 @@ void update_heap_address(char *input_address, size_t sz) {
 
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    void *starting_address = base_malloc(sz + (sizeof(struct meta))); // also allocate space for meta data. 
+    void *starting_address = base_malloc(sz + meta_header_padding); // also allocate space for meta data.
+    struct meta *meta_data_ptr = starting_address; 
     if(starting_address == NULL) // memory allocation failed.
     {
         //updates the total number of failed memory allocation attempts.
@@ -69,15 +73,20 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     }
     else 
     {
-        struct meta *meta_data_ptr = starting_address;
+       // struct meta *meta_data_ptr = starting_address;
         meta_data_ptr->block_size = sz;
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
-        update_heap_address((char*)starting_address, sz); // updates heap address space seen so far.
+        update_heap_address((char*)starting_address + meta_header_padding, sz); // updates heap address space seen so far.
         current_stats.active_size += sz;
     }  
-    return starting_address + sizeof(struct meta);
+    void *payload = starting_address + meta_header_padding;
+    while( (uintptr_t) payload % ALIGNMENT != 0)
+    {
+        payload += 1;
+    }
+    return payload;
 }
 
 
@@ -89,7 +98,7 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    struct meta *meta_data_ptr = ptr - sizeof(struct meta); //computing ptr to meta data
+    struct meta *meta_data_ptr = ptr - meta_header_padding; //computing ptr to meta data
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     base_free(ptr);
     total_free += 1; //updates the total number of free(ptr) so far. 
@@ -112,6 +121,8 @@ void* m61_realloc(void* ptr, size_t sz, const char* file, int line) {
         // Copy the data from `ptr` into `new_ptr`.
         // To do that, we must figure out the size of allocation `ptr`.
         // Your code here (to fix test012).
+        struct meta *meta_data_ptr = (struct meta *) ptr - meta_header_padding;
+        memcpy(new_ptr, ptr, meta_data_ptr->block_size);
     }
     m61_free(ptr, file, line);
     return new_ptr;
