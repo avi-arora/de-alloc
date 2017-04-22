@@ -63,13 +63,13 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     void *starting_address = base_malloc(sz + meta_header_padding); // also allocate space for meta data.
     struct meta *meta_data_ptr = starting_address; 
-    if(starting_address == NULL) // memory allocation failed.
+    if(starting_address == NULL || sz + meta_header_padding < sz ) // memory allocation failed.
     {
         //updates the total number of failed memory allocation attempts.
         current_stats.nfail += 1;
         //updates the size of total failed allocations
         current_stats.fail_size += sz;
-        return starting_address;
+        return NULL; //small memory may allocate due to overflow, 
     }
     else 
     {
