@@ -7,10 +7,10 @@
 const char data[10] = "1234567890";
 
 int main() {
-    char* p = (char*) realloc(NULL, 10);
+    char* p = (char*) realloc(NULL, 10); //works as malloc(10)
     assert(p != NULL);
     memcpy(p, data, 10);
-    p = (char*) realloc(p, 12);
+    p = (char*) realloc(p, 12); //allocating extra 2 bytes
     assert(p != NULL);
     assert(memcmp(data, p, 10) == 0);
     p = (char*) realloc(p, 0);

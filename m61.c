@@ -82,10 +82,6 @@ void* m61_malloc(size_t sz, const char* file, int line) {
         current_stats.active_size += sz;
     }  
     void *payload = starting_address + meta_header_padding;
-    while( (uintptr_t) payload % ALIGNMENT != 0)
-    {
-        payload += 1;
-    }
     return payload;
 }
 
@@ -98,9 +94,12 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
-    struct meta *meta_data_ptr = ptr - meta_header_padding; //computing ptr to meta data
+    void *memory = ptr - meta_header_padding;
+    struct meta *meta_data_ptr = (struct meta *) memory; //computing ptr to meta data
+    if(!ptr)
+        return;
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
-    base_free(ptr);
+    base_free(memory);
     total_free += 1; //updates the total number of free(ptr) so far. 
     update_active_allocations(); //this changes because memory is being released. 
 }
@@ -117,14 +116,16 @@ void* m61_realloc(void* ptr, size_t sz, const char* file, int line) {
     void* new_ptr = NULL;
     if (sz)
         new_ptr = m61_malloc(sz, file, line);
-    if (ptr && new_ptr) {
+    if (ptr != NULL && new_ptr != NULL) {
         // Copy the data from `ptr` into `new_ptr`.
         // To do that, we must figure out the size of allocation `ptr`.
         // Your code here (to fix test012).
-        struct meta *meta_data_ptr = (struct meta *) ptr - meta_header_padding;
+        void *memory = ptr - meta_header_padding;
+        struct meta *meta_data_ptr = (struct meta *) memory;
         memcpy(new_ptr, ptr, meta_data_ptr->block_size);
     }
-    m61_free(ptr, file, line);
+    if(ptr)
+        m61_free(ptr, file, line);
     return new_ptr;
 }
 
