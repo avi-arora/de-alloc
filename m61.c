@@ -138,8 +138,13 @@ void* m61_realloc(void* ptr, size_t sz, const char* file, int line) {
 ///    The allocation request was at location `file`:`line`.
 
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, int line) {
-    // Your code here (to fix test014).
-    void* ptr = m61_malloc(nmemb * sz, file, line);
+    //avoid multiplication overflow
+    int size = nmemb * sz;
+    if(size < nmemb) { //failed due to overflow of multiplication
+        current_stats.nfail += 1; //updating the failed allocation attemps
+        return NULL;
+    }
+    void* ptr = m61_malloc(size, file, line);
     if (ptr)
         memset(ptr, 0, nmemb * sz);
     return ptr;
