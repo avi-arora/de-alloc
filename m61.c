@@ -24,6 +24,7 @@ struct m61_statistics current_stats = {
 #define ALIGNMENT 8
 struct meta {
     size_t block_size;
+    size_t alignment_shifts;
 };
 size_t meta_header_padding = (sizeof(struct meta) % ALIGNMENT) ? (sizeof(struct meta) + ALIGNMENT) - (sizeof(struct meta) % ALIGNMENT) : sizeof(struct meta);
 
@@ -32,6 +33,7 @@ size_t meta_header_padding = (sizeof(struct meta) % ALIGNMENT) ? (sizeof(struct 
 
 //global variable to keeps track of number of free(ptr).
 unsigned long long total_free = 0;
+
 
 //keeps updating the global current_stats structure, 
 //called whenever memory is allocated and deallocated.
@@ -75,9 +77,11 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     {
        // struct meta *meta_data_ptr = starting_address;
         meta_data_ptr->block_size = sz;
+        meta_data_ptr->alignment_shifts = 0;
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
+
         update_heap_address((char*)starting_address + meta_header_padding, sz); // updates heap address space seen so far.
         current_stats.active_size += sz;
     }  
@@ -98,6 +102,13 @@ void m61_free(void *ptr, const char *file, int line) {
     struct meta *meta_data_ptr = (struct meta *) memory; //computing ptr to meta data
     if(!ptr)
         return;
+        
+     //pointer doesn't point inside heap
+     if(ptr > (void *)current_stats.heap_max || ptr < (void *)current_stats.heap_min)
+     {
+        printf("MEMORY BUG: %s:%d: invalid free of pointer %p, not in heap\n", file, line, ptr);
+        abort();
+     }
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     base_free(memory);
     total_free += 1; //updates the total number of free(ptr) so far. 
