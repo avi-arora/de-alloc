@@ -22,11 +22,14 @@ struct m61_statistics current_stats = {
 //this structure hold meta-data
 //related to allocation information, size etc
 #define ALIGNMENT 8
+#define MAX_SIZE 1000
 #define MARKER 0xdeadbeaf
 struct meta {
     size_t block_size: 31;
    char allocated: 1; // y if block is allocated in heap, else n or anything
    char *marker;     // indicates the block is allocated by this debugging memory allocator.
+   const char *file; // to keep track of filenames
+   int line;        //to keep track of line number of error locations
 };
 struct footer {
     char *marker;
@@ -35,7 +38,9 @@ size_t meta_header_padding = (sizeof(struct meta) % ALIGNMENT) ? (sizeof(struct 
 size_t meta_footer_padding = (sizeof(struct footer) % ALIGNMENT) ? (sizeof(struct footer) + ALIGNMENT) - (sizeof(struct footer) % ALIGNMENT): sizeof(struct footer);
 
 
-
+//global array to log every allocation, for memory leakage checking
+static char *log[MAX_SIZE];
+int index = 0; 
 
 //global variable to keeps track of number of free(ptr).
 unsigned long long total_free = 0;
@@ -51,14 +56,37 @@ void update_active_allocations() {
 //called whenever memory is allocated, 
 //make comparision b/w addresses
 void update_heap_address(char *input_address, size_t sz) {
-    if(input_address < current_stats.heap_min)  
+    if(input_address < current_stats.heap_min || current_stats.heap_min == (char *)0xffffffff)  
     {
         current_stats.heap_min = input_address;
     }
-    if(input_address > current_stats.heap_max)
+    if(input_address > current_stats.heap_max || current_stats.heap_max == (char *)0x00)
     {
         current_stats.heap_max = input_address + sz;
     }
+}
+
+//updates the global log after an allocation
+//ptr is pointer to atcual meta data
+
+void log_allocation(struct meta* ptr)
+{
+    char *location = (char *) ptr;
+    log[index++] = location;
+}
+void log_free(struct meta* ptr)
+{
+    //search where the ptr,
+    int i = 0; char* location = (char *) ptr;
+    while(log[i] != location)
+        i++;
+    //removes the entry and refresh the log
+    while(i < index-1)
+    {
+        log[i] = log[i+1];
+        i++; 
+    }
+    index--;      
 }
 
 /// m61_malloc(sz, file, line)
@@ -82,16 +110,19 @@ void* m61_malloc(size_t sz, const char* file, int line) {
     }
     else 
     {
-       // struct meta *meta_data_ptr = starting_address;
         meta_data_ptr->block_size = sz;
         meta_data_ptr->allocated = 1;
+        meta_data_ptr->file = file;
+        meta_data_ptr->line = line;
         meta_data_ptr->marker = (char *)MARKER;
         meta_footer_ptr->marker = (char *)MARKER;
+       
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
         update_active_allocations(); //updates the current_stats, because more memory is allocated.
         current_stats.total_size += sz; // updates total bytes allocated so far. 
         update_heap_address((char*)starting_address + meta_header_padding, sz); // updates heap address space seen so far.
         current_stats.active_size += sz;
+        log_allocation(meta_data_ptr);
     }  
     void *payload = (void *) ((struct meta *) starting_address + 1);
     return payload;
@@ -142,6 +173,7 @@ void m61_free(void *ptr, const char *file, int line) {
       
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     meta_data_ptr->allocated = 0; //indicating that the block is now about to release, free'd.
+    log_free(meta_data_ptr);
     base_free(memory);  
     total_free += 1; //updates the total number of free(ptr) so far. 
     update_active_allocations(); //this changes because memory is being released. 
@@ -231,5 +263,10 @@ void m61_printstatistics(void) {
 ///    memory.
 
 void m61_printleakreport(void) {
-    // Your code here.
+    int i = 0; struct meta *meta_data;
+    while(i < index) 
+    {
+        meta_data = (struct meta*) log[i]; i++;
+        printf("LEAK CHECK: %s:%d: allocated object %p with size %zu\n",meta_data->file, meta_data->line, meta_data+1, meta_data->block_size);
+    }
 }
