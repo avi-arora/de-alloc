@@ -264,9 +264,18 @@ void m61_printstatistics(void) {
 
 void m61_printleakreport(void) {
     int i = 0; struct meta *meta_data;
+    //output memory leakage data
     while(i < index) 
     {
         meta_data = (struct meta*) log[i]; i++;
         printf("LEAK CHECK: %s:%d: allocated object %p with size %zu\n",meta_data->file, meta_data->line, meta_data+1, meta_data->block_size);
     }
+    //clean leaked memory after logs
+    i = 0;
+    while(i < index)
+    {
+        base_free((void *) log[i]); i++;
+    }
+    index = 0; //initilize the start of log location
+    
 }
