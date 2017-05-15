@@ -42,8 +42,13 @@ memnode_arena* memnode_arena_new(void) {
 
 void memnode_arena_free(memnode_arena* arena) {
      //Clean up your arena, being sure to free any space you allocated
-    // free memory allocated for arena only, this does not free
-   // the memory allocated within memnode_group 
+    // free all the groups also, if any
+    for(memnode_group *group = arena->groups; group; )
+    {
+        memnode_group *next = group->next; 
+        free(group);
+        group = next;
+    }
    free(arena);  
 }
 
@@ -58,7 +63,12 @@ memnode* memnode_alloc(memnode_arena* arena) {
         {
             return NULL;
         }
-        arena->freelist = group->nodes; //add newly allocated space to the free list
+        //add newly allocated space to the free list
+        for(int i = 0; i != MEMNODE_GROUPSIZE; i++)
+        {
+            group->nodes[i].contents = arena->freelist;
+            arena->freelist = &group->nodes[i];
+        }
     }
     //add an element from the freelist, to fulfill the allocation request
     memnode *node = arena->freelist;
