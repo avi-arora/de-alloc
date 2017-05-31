@@ -97,9 +97,13 @@ void log_free(struct meta* ptr)
 
 void* m61_malloc(size_t sz, const char* file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
+    
     void *starting_address = base_malloc(sz + meta_header_padding + meta_footer_padding); // also allocate space for meta data.
+    
     struct meta *meta_data_ptr = starting_address; 
     struct footer *meta_footer_ptr = (struct footer *) ((size_t)starting_address + sz + meta_header_padding);
+    
+    
     if(starting_address == NULL || sz + meta_header_padding < sz ) // memory allocation failed.
     {
         //updates the total number of failed memory allocation attempts.
@@ -114,7 +118,7 @@ void* m61_malloc(size_t sz, const char* file, int line) {
         meta_data_ptr->allocated = 1;
         meta_data_ptr->file = file;
         meta_data_ptr->line = line;
-        meta_data_ptr->marker = (char *)MARKER;
+        meta_data_ptr->marker = (char *) starting_address;
         meta_footer_ptr->marker = (char *)MARKER;
        
         current_stats.ntotal += 1; // updates every allocation, keeps track of total number of allocations.
@@ -137,29 +141,61 @@ void* m61_malloc(size_t sz, const char* file, int line) {
 
 void m61_free(void *ptr, const char *file, int line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
+    
     if(!ptr)
         return;
+    
     void *memory = ptr - meta_header_padding;
-    struct meta *meta_data_ptr = (struct meta *) memory; //computing ptr to meta data
+    
+    struct meta *meta_data_ptr = (struct meta *) memory ; //computing ptr to meta data
     struct footer *meta_footer_ptr = ptr + meta_data_ptr->block_size;
+    
      //pointer doesn't point inside heap
      if(ptr > (void *)current_stats.heap_max || ptr < (void *)current_stats.heap_min)
      {
         printf("MEMORY BUG: %s:%d: invalid free of pointer %p, not in heap\n", file, line, ptr);
         abort();
      }
+     struct meta *header = ptr - meta_header_padding;
      //wild free inside heap 
-     if(meta_data_ptr->marker != (char*) MARKER)
+     if(header->marker != (char*) header )
      {
         printf("MEMORY BUG: %s:%d: invalid free of pointer %p, not allocated\n", file, line, ptr);
-        abort();
-     } meta_data_ptr->marker = 0x0;
+        //check for more diabolical free's inside heap memory not alloted to us, 
+        //print more accurate error report, if the invalid ptr is inside different allocated block.
+        
+        //first search for the footer marker in the unknown memory region, 
+        //one fact that we are sure of, is that the ptr is always shifted to the right,
+        //one can easily go back to the owned memory block, by shifting the ptr backward byte-by-byte
+       
+        char *starting_point = current_stats.heap_min - meta_header_padding;
+        struct meta* find_meta_data = (struct meta*) starting_point;
+        
+        while(starting_point < (char *) (ptr - meta_header_padding))
+        {
+             if(find_meta_data->marker == (char*) MARKER)
+             {
+                printf("  %s:%d: %p is %d bytes inside a %zu byte region allocated here\n",
+                find_meta_data->file, find_meta_data->line, ptr, (char *)ptr - (starting_point + meta_header_padding), find_meta_data->block_size);
+                break;
+             }
+            starting_point++;
+            find_meta_data = (struct meta*)starting_point;
+            
+        }
+       abort();
+     } 
+     
+     meta_data_ptr->marker = 0x0;
+     
      //resolve's double free issues
      if(meta_data_ptr->allocated == 0)
      {
         printf("MEMORY BUG: %s:%d: invalid free of pointer %p, already free'd\n", file, line, ptr);
         abort();
      }
+     
+     
      //wild write error during free of allocated memory, 
      //stop freeing unallocated space, off by one and other write error in array's
      //check the boundary write error of the end of the allocated block
@@ -177,7 +213,9 @@ void m61_free(void *ptr, const char *file, int line) {
     base_free(memory);  
     total_free += 1; //updates the total number of free(ptr) so far. 
     update_active_allocations(); //this changes because memory is being released. 
+
 }
+
 
 
 /// m61_realloc(ptr, sz, file, line)
