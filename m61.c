@@ -173,7 +173,7 @@ void m61_free(void *ptr, const char *file, int line) {
         
         while(starting_point < (char *) (ptr - meta_header_padding))
         {
-             if(find_meta_data->marker == (char*) MARKER)
+             if(find_meta_data->marker == (char*) starting_point)
              {
                 printf("  %s:%d: %p is %d bytes inside a %zu byte region allocated here\n",
                 find_meta_data->file, find_meta_data->line, ptr, (char *)ptr - (starting_point + meta_header_padding), find_meta_data->block_size);
