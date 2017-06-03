@@ -45,6 +45,10 @@ int index = 0;
 //global variable to keeps track of number of free(ptr).
 unsigned long long total_free = 0;
 
+//global array to store temporary state
+static char *free_list[MAX_SIZE];
+int free_list_index = 0;
+
 
 //keeps updating the global current_stats structure, 
 //called whenever memory is allocated and deallocated.
@@ -156,6 +160,7 @@ void m61_free(void *ptr, const char *file, int line) {
         printf("MEMORY BUG: %s:%d: invalid free of pointer %p, not in heap\n", file, line, ptr);
         abort();
      }
+     
      struct meta *header = ptr - meta_header_padding;
      //wild free inside heap 
      if(header->marker != (char*) header )
@@ -185,7 +190,6 @@ void m61_free(void *ptr, const char *file, int line) {
         }
        abort();
      } 
-     
      meta_data_ptr->marker = 0x0;
      
      //resolve's double free issues
@@ -195,7 +199,16 @@ void m61_free(void *ptr, const char *file, int line) {
         abort();
      }
      
-     
+     //resolve's yet another double free
+     for(int i = 0; i < free_list_index; i++)
+     {
+        if(free_list[i] == (char *) ptr)
+        {
+            printf("MEMORY BUG: %s:%d: invalid free of pointer %p, already free'd\n", file, line, ptr);
+            abort();
+        }
+     }
+           
      //wild write error during free of allocated memory, 
      //stop freeing unallocated space, off by one and other write error in array's
      //check the boundary write error of the end of the allocated block
@@ -210,7 +223,8 @@ void m61_free(void *ptr, const char *file, int line) {
     current_stats.active_size -= meta_data_ptr->block_size; // extracting allocation size from meta data, updating active size
     meta_data_ptr->allocated = 0; //indicating that the block is now about to release, free'd.
     log_free(meta_data_ptr);
-    base_free(memory);  
+    base_free(memory);
+    free_list[free_list_index++] = ptr;  
     total_free += 1; //updates the total number of free(ptr) so far. 
     update_active_allocations(); //this changes because memory is being released. 
 
