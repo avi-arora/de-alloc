@@ -1,4 +1,5 @@
 ![alt header](/assets/header.png)
+
 Memory allocation/de-allocation takes ample ammout of time, to cure this masters crafted well engineered solutions e.g tcmalloc, jemalloc and alike. As much as i appreciated their efforts, understanding these highly complex memory allocator is a tough job, also they are designed to solve very specific problem hence can not be used as a general purpose allocator. 
 
 De-alloc is a well designed general purpose memory allocation library that uses standard C memory allocation library and implements handlers to add new functionalities like debugging, overwrite detection, current memory statistics etc. it reduces the complexity of a large scale allocator like jemalloc and tcmalloc, it uses simple data structures and minimises the cache miss ratio by half using custom designed cache centric architecture. 
@@ -40,8 +41,11 @@ De-alloc is a well designed general purpose memory allocation library that uses 
 # Implementation
 De-alloc takes advantage of the stdlib in c, it uses the stantard memory allocation functions malloc() and free(). Apart from that it uses other library functions and encapsulate a protection layer within the allocator by maintaining internal structures of meta-data to track objects of different size classes and give the overall usage statistics to the user via it's own interface. 
 
-The figure below shows how the de-alloc allocates a block of memory, and addup the additional overhead to add debugging facility to the already present memory allocator. 
+The figure below shows how the de-alloc allocates a block of memory, and addup the additional overhead to add debugging facility to the already present memory allocator.
+
+ 
 ![alt fig1](/assets/figure1.png)
+
 # Credits 
 This project is implemented as an assignment of CS61 curriculum of School of Engineering and Applied Sciences at Harvard University, the distribution code and exact project specification can be found at this [link](https://cs61.seas.harvard.edu/wiki/2015/AllocDebug). 
 
