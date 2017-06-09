@@ -1,7 +1,7 @@
 # Default optimization level
 O ?= -O2
 
-TESTS = $(patsubst %.c,%,$(sort $(wildcard test[0-9][0-9][0-9].c)))
+TESTS = $(patsubst %.c,%,$(sort $(wildcard testing/test[0-9][0-9][0-9].c)))
 
 all: $(TESTS) hhtest
 

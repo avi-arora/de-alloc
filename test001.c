@@ -1,4 +1,4 @@
-#include "m61.h"
+#include "../m61.h"
 #include <stdio.h>
 // Trivial check: no allocations == zero statistics.
 

@@ -49,6 +49,90 @@ unsigned long long total_free = 0;
 static char *free_list[MAX_SIZE];
 int free_list_index = 0;
 
+//global singly linked list to maintain supporting information for Heavy Hitter
+//one-node per file-line pair maintains meta to calculate Heavy Hitter Report
+struct heavy_hitter_metadata *head = NULL;
+
+//
+void m61_updateheavyhitter(unsigned long long size, const char *file, int line) {
+    
+    if(head == NULL)
+    {
+        struct heavy_hitter_metadata *temp = malloc(sizeof(heavy_hitter_metadata));
+        if(temp == NULL)
+        {
+            printf("HEAVY HITTER Internal Error: Memory Not Allocated\n");
+            abort();
+        }
+        temp->size = size;
+        temp->file = file;
+        temp->line = line;
+        temp->next = NULL;
+        head = temp;
+    }
+    else
+    {
+        //traverse the list and 
+        //find if the file-line pair node already exist, 
+        //if no created a new node & append, otherwise update the node
+        struct heavy_hitter_metadata *traverse = head;
+        while((traverse->file != file && traverse->line != line) || traverse->next != NULL)
+        {
+            traverse = traverse->next;
+        }
+        if(traverse->next == NULL)
+        {
+            struct heavy_hitter_metadata *newnode = malloc(sizeof(heavy_hitter_metadata));
+            if(newnode == NULL)
+            {
+                printf("HEAVY HITTER Internal Error: Memory Not Allocated\n");
+                abort();
+            }   
+            newnode->size = size;
+            newnode->file = file;
+            newnode->line = line;
+            newnode->next = NULL:
+            traverse->next = newnode;
+        }
+        else
+        {
+            traverse->size += size;
+        }
+    }
+}
+
+//clean meta data required for computing heavy hitter report
+void m61_cleanheavyhittermetadata(void) {
+    //traverse the global singly linked list and release the memory
+    struct heavy_hitter_metadata *temp;
+    while(head-next != NULL)
+    {
+        temp = head;
+        head = head->next;
+        base_free(temp);
+    }
+}
+         
+//calculate Heavy Hitter & print Report
+//traverse the singly linked list and compute the heavy hitter nodes, if any exist
+void m61_printheavyhitterreport(void) {
+
+    struct heavy_hitter_metadata *temp = head;
+    double percentage = 0.0;
+    while(temp->next != NULL)
+    {
+        percentage = (temp->size / current_stats.total_size) * 100;
+        if(percentage >= 20.0)
+        {
+            //it's a heavy hit, print it's information
+            printf("HEAVY HITTER: %s:%d: %lu bytes (~ %f\%)\n"); 
+        }
+        temp = temp->next;
+    }
+    //release the memory 
+    m61_cleanheavyhittermetadata();
+}
+   
 
 //keeps updating the global current_stats structure, 
 //called whenever memory is allocated and deallocated.

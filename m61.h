@@ -9,6 +9,7 @@ void m61_free(void* ptr, const char* file, int line);
 void* m61_realloc(void* ptr, size_t sz, const char* file, int line);
 void* m61_calloc(size_t nmemb, size_t sz, const char* file, int line);
 
+//for general memory allocation tracking 
 struct m61_statistics {
     unsigned long long nactive;         // # active allocations
     unsigned long long active_size;     // # bytes in active allocations
@@ -20,9 +21,27 @@ struct m61_statistics {
     char* heap_max;                     // largest allocated addr
 };
 
+//for memory allocation profiler (i.e. heavy hitter)
+//16-Byte per file-line pair overhead added for each node
+struct heavy_hitter_metadata {
+    unsigned long long size;
+    const char *file;
+    int line;
+    
+    struct heavy_hitter_metadata *next;
+};
+
+//prototypes for memory debugger & statistics tracking
 void m61_getstatistics(struct m61_statistics* stats);
 void m61_printstatistics(void);
 void m61_printleakreport(void);
+
+//prototypes for heavy hitter detector
+void m61_updateheavyhitter(unsigned long long, const char *, int);
+void m61_printheavyhitterreport(void);
+void m61_cleanheavyhittermetadata(void);
+
+
 
 #if !M61_DISABLE
 #define malloc(sz)              m61_malloc((sz), __FILE__, __LINE__)
